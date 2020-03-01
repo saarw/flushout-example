@@ -9,7 +9,7 @@ function App() {
   return (
     <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
     <div>
-    <p>Collaboration example app using distributed data model Flushout (source at <a href="https://github.com/saarw/flushout-example">https://github.com/saarw/flushout-example</a>)</p>
+    <p>Collaboration example app using distributed data model <a href="https://github.com/saarw/flushout">Flushout</a> (example source at <a href="https://github.com/saarw/flushout-example">https://github.com/saarw/flushout-example</a>)</p>
     </div>
     <div className="App">
       <Client title="Client 1" backendApi={backendApi}></Client>
