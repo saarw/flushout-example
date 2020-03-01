@@ -102,7 +102,7 @@ export function Client(props: ClientProps) {
         {localProxy == undefined ? 
         <p>Loading...</p> :
         <div style={{flexGrow: 1, alignSelf: 'stretch', display: 'flex', flexDirection: 'column', alignItems: 'stretch'}}>
-            <div style={{flexGrow: 1, overflowY: 'scroll', height: '40vh'}}>
+            <div style={{flexGrow: 1, overflowY: 'scroll', height: '32vh'}}>
             {todoEntries.map(([id, todo]) => {
                 return <TodoEntryView id={id} todo={todo} backendApi={props.backendApi} 
                     applyCommand={applyLocally}/>;

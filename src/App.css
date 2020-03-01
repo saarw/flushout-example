@@ -1,6 +1,7 @@
 .App {
   text-align: center;
   display: flex;
+  align-self: stretch;
 }
 
 button {
