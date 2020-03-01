@@ -7,6 +7,53 @@ interface ClientProps {
     backendApi: BackendApi;
 }
 
+function TodoEntryView(props: {
+    id: string;
+    todo: TodoEntry;
+    backendApi: BackendApi;
+    applyCommand: (command: Command) => void;
+}) {
+    const [editingTodoId, setEditingTodoId] = useState<string>();
+    const [editTodoField, setEditTodoField] = useState('');
+    return <div key={props.id} style={{display: 'flex', alignItems: 'center', 
+        borderWidth: '1px', borderStyle: 'solid', borderColor: '#cccccc',
+        padding: 0, margin: '5px', marginLeft: '40px', marginRight: '40px'}}>
+        <textarea name="todo-field" style={{flexGrow: 1, borderWidth: 0, alignSelf: 'stretch'}}
+        value={editingTodoId === props.id ? editTodoField : props.todo.text} 
+        onChange={(ev) => { 
+            setEditTodoField(ev.target.value);
+        }} 
+        onKeyPress={(ev) => {
+            if (ev.which === 13) {
+                ev.preventDefault();
+                const updateCommand: Command<TodoEntry> = {
+                    action: CommandAction.Update,
+                    path: ['todos', props.id],
+                    props: {
+                        text: editTodoField
+                    }
+                };
+                props.applyCommand(updateCommand);
+                ev.currentTarget.blur();
+            }
+        }}
+        onBlur={() => {
+            setEditingTodoId(undefined);
+        }}
+        onFocus={() => {
+            setEditingTodoId(props.id);
+            setEditTodoField(props.todo.text);
+        }}/>
+        <button type="button" onClick={() => {
+            const deleteCommand: Command = {
+                action: CommandAction.Delete,
+                path: ['todos', props.id]
+            };
+            props.applyCommand(deleteCommand);
+        }}>Delete</button>
+    </div>;
+}
+
 export function Client(props: ClientProps) {
     const [newTextField, setNewTextField] = useState('');
     const [flushoutProxy, setFlushoutProxy] = useState<Proxy<TodoList>>();
@@ -14,8 +61,14 @@ export function Client(props: ClientProps) {
     const [proxyCommandCount, setProxyCommandCount] = useState(0);
     const [lastSnapshotCommandCount, setLastSnapshotCommandCount] = useState(0);
     const [unflushedCommands, setUnflushedCommands] = useState(0);
-    const [editingTodoId, setEditingTodoId] = useState<string>();
-    const [editTodoField, setEditTodoField] = useState('');
+    // Applies a command on the local proxy and updates the local count
+    const applyLocally = (command: Command) => {
+        if (flushoutProxy) {
+            flushoutProxy.apply(command);
+            setProxyCommandCount(flushoutProxy.getCommandCount());
+        }
+    };
+    // Get the initial snapshot from the master
     useEffect(() => {
         props.backendApi.latestSnapshot().then((todoList) => {
             const proxy = new Proxy(todoList);
@@ -24,10 +77,18 @@ export function Client(props: ClientProps) {
             setLastSnapshotCommandCount(todoList.commandCount);
         });
     }, []);
-    // Effect drives UI updates
+    // Drives UI updates
     useEffect(() => {
         if (flushoutProxy) {
-            setTodoEntries(Object.entries(flushoutProxy.getDocument().todos));
+            setTodoEntries(Object.entries(flushoutProxy.getDocument().todos).sort(([_id1, todo1], [_id2, todo2]) => {
+                if (todo1.createdAt == undefined) {
+                    return -1;
+                }
+                if (todo2.createdAt == undefined) {
+                    return 1;
+                }
+                return todo2.createdAt - todo1.createdAt;
+            }));
             setUnflushedCommands(flushoutProxy.getCommandCount() - lastSnapshotCommandCount)
         }
     }, [proxyCommandCount, lastSnapshotCommandCount])
@@ -38,45 +99,8 @@ export function Client(props: ClientProps) {
         <div style={{flexGrow: 1, alignSelf: 'stretch', display: 'flex', flexDirection: 'column', alignItems: 'stretch'}}>
             <div style={{flexGrow: 1}}>
             {todoEntries.map(([id, todo]) => {
-                return <div key={id} style={{display: 'flex', alignItems: 'center', 
-                    borderWidth: '1px', borderStyle: 'solid', borderColor: '#cccccc',
-                    padding: 0, margin: '5px', marginLeft: '40px', marginRight: '40px'}}>
-                        <textarea name="todo-field" style={{flexGrow: 1, borderWidth: 0, alignSelf: 'stretch'}}
-                        value={editingTodoId === id ? editTodoField : todo.text} 
-                        onChange={(ev) => { 
-                            setEditTodoField(ev.target.value);
-                        }} 
-                        onKeyPress={(ev) => {
-                            if (ev.which === 13) {
-                                ev.preventDefault();
-                                const updateCommand: Command<TodoEntry> = {
-                                    action: CommandAction.Update,
-                                    path: ['todos', id],
-                                    props: {
-                                        text: editTodoField
-                                    }
-                                };
-                                flushoutProxy.apply(updateCommand);
-                                setProxyCommandCount(flushoutProxy.getCommandCount());
-                                ev.currentTarget.blur();
-                            }
-                        }}
-                        onBlur={() => {
-                            setEditingTodoId(undefined);
-                        }}
-                        onFocus={() => {
-                            setEditingTodoId(id);
-                            setEditTodoField(todo.text);
-                        }}/>
-                        <button type="button" onClick={() => {
-                            const deleteCommand: Command = {
-                                action: CommandAction.Delete,
-                                path: ['todos', id]
-                            };
-                            flushoutProxy.apply(deleteCommand);
-                            setProxyCommandCount(flushoutProxy.getCommandCount());
-                        }}>Delete</button>
-                    </div>;
+                return <TodoEntryView id={id} todo={todo} backendApi={props.backendApi} 
+                    applyCommand={applyLocally}/>;
             })}
             </div>
             <div style={{alignSelf: 'stretch', display: 'flex', alignItems: 'center'}}>
@@ -93,9 +117,8 @@ export function Client(props: ClientProps) {
                             text: newTextField
                         }
                     };
-                    flushoutProxy.apply(createCommand);
+                    applyLocally(createCommand);
                     setNewTextField('');
-                    setProxyCommandCount(flushoutProxy.getCommandCount());
                 }}>New</button>
             </div>
             <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-evenly', marginTop: '1em'}}>

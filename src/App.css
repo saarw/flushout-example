@@ -10,6 +10,10 @@ button {
   margin: 5px;
 }
 
+h1 {
+  margin: 0px;
+}
+
 textarea {
   font-size: 1em;
 }
@@ -20,10 +24,11 @@ textarea {
   display: flex;
   flex-direction: column;
   align-items: center;
+  margin: 5px;
   margin-left: 10px;
   margin-right: 10px;
-  border-width: 5px;
-  border-style: 'solid';
+  border-width: 2px;
+  border-style: solid;
   border-color: #7c7a7a;
 }
 
