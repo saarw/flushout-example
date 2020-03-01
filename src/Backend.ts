@@ -1,5 +1,5 @@
-import { Master, CompletionBatch, ApplyResult, Snapshot } from "flushout";
-import { TodoList, BackendApi } from "./types";
+import { Master, CompletionBatch, ApplyResult, Snapshot, CommandAction, Command } from "flushout";
+import { TodoList, BackendApi, TodoEntry } from "./types";
 
 export class Backend implements BackendApi {
     master: Master<TodoList>;
@@ -9,6 +9,19 @@ export class Backend implements BackendApi {
             commandCount: 0,
             document: {
                 todos: {}
+            }
+        }, {
+            // Use an interceptor to set the createdAt time when the command is applied on the master
+            interceptor: (_document: TodoList, command: Command<TodoEntry>) => {
+                if (command.action === CommandAction.Create) {
+                    return {
+                        newProps: {
+                            ...command.props,
+                            createdAt: new Date().getTime()
+                        }
+                    };
+                }
+                return undefined;
             }
         });
     }

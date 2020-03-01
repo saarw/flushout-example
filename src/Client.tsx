@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Proxy, CommandAction, Command } from 'flushout';
-import { BackendApi, TodoList, TodoEntry } from './types';
+import React, { useEffect, useState } from 'react';
+import { BackendApi, TodoEntry, TodoList } from './types';
+import { Command, CommandAction, Proxy } from 'flushout';
 
 interface ClientProps {
     title: string;
@@ -16,34 +16,39 @@ function TodoEntryView(props: {
     const [editingTodoId, setEditingTodoId] = useState<string>();
     const [editTodoField, setEditTodoField] = useState('');
     return <div key={props.id} style={{display: 'flex', alignItems: 'center', 
-        borderWidth: '1px', borderStyle: 'solid', borderColor: '#cccccc',
+        borderWidth: '1px', backgroundColor: '#f6f6f6', borderStyle: 'solid', borderColor: '#cccccc',
         padding: 0, margin: '5px', marginLeft: '40px', marginRight: '40px'}}>
-        <textarea name="todo-field" style={{flexGrow: 1, borderWidth: 0, alignSelf: 'stretch'}}
-        value={editingTodoId === props.id ? editTodoField : props.todo.text} 
-        onChange={(ev) => { 
-            setEditTodoField(ev.target.value);
-        }} 
-        onKeyPress={(ev) => {
-            if (ev.which === 13) {
-                ev.preventDefault();
-                const updateCommand: Command<TodoEntry> = {
-                    action: CommandAction.Update,
-                    path: ['todos', props.id],
-                    props: {
-                        text: editTodoField
-                    }
-                };
-                props.applyCommand(updateCommand);
-                ev.currentTarget.blur();
-            }
-        }}
-        onBlur={() => {
-            setEditingTodoId(undefined);
-        }}
-        onFocus={() => {
-            setEditingTodoId(props.id);
-            setEditTodoField(props.todo.text);
-        }}/>
+        <div style={{display: 'flex', flexDirection: 'column', alignItems: 'stretch', flexGrow: 1, alignSelf: 'stretch'}}>
+        <textarea name="todo-field" 
+            style={{backgroundColor: 'inherit', border: 0}}
+            rows={1}
+            value={editingTodoId === props.id ? editTodoField : props.todo.text} 
+            onChange={(ev) => { 
+                setEditTodoField(ev.target.value);
+            }} 
+            onKeyPress={(ev) => {
+                if (ev.which === 13) {
+                    ev.preventDefault();
+                    const updateCommand: Command<TodoEntry> = {
+                        action: CommandAction.Update,
+                        path: ['todos', props.id],
+                        props: {
+                            text: editTodoField
+                        }
+                    };
+                    props.applyCommand(updateCommand);
+                    ev.currentTarget.blur();
+                }
+            }}
+            onBlur={() => {
+                setEditingTodoId(undefined);
+            }}
+            onFocus={() => {
+                setEditingTodoId(props.id);
+                setEditTodoField(props.todo.text);
+            }}/>
+            <small style={{alignSelf: 'flex-start'}}>Created at {props.todo.createdAt ? new Date(props.todo.createdAt).toLocaleTimeString() : '<Not flushed>'}</small>
+        </div>
         <button type="button" onClick={() => {
             const deleteCommand: Command = {
                 action: CommandAction.Delete,
@@ -56,55 +61,55 @@ function TodoEntryView(props: {
 
 export function Client(props: ClientProps) {
     const [newTextField, setNewTextField] = useState('');
-    const [flushoutProxy, setFlushoutProxy] = useState<Proxy<TodoList>>();
+    const [localProxy, setLocalProxy] = useState<Proxy<TodoList>>();
     const [todoEntries, setTodoEntries] = useState<Array<[string, TodoEntry]>>([]);
     const [proxyCommandCount, setProxyCommandCount] = useState(0);
     const [lastSnapshotCommandCount, setLastSnapshotCommandCount] = useState(0);
     const [unflushedCommands, setUnflushedCommands] = useState(0);
     // Applies a command on the local proxy and updates the local count
     const applyLocally = (command: Command) => {
-        if (flushoutProxy) {
-            flushoutProxy.apply(command);
-            setProxyCommandCount(flushoutProxy.getCommandCount());
+        if (localProxy) {
+            localProxy.apply(command);
+            setProxyCommandCount(localProxy.getCommandCount());
         }
     };
     // Get the initial snapshot from the master
     useEffect(() => {
         props.backendApi.latestSnapshot().then((todoList) => {
             const proxy = new Proxy(todoList);
-            setFlushoutProxy(proxy);
+            setLocalProxy(proxy);
             setProxyCommandCount(proxy.getCommandCount());
             setLastSnapshotCommandCount(todoList.commandCount);
         });
     }, []);
     // Drives UI updates
     useEffect(() => {
-        if (flushoutProxy) {
-            setTodoEntries(Object.entries(flushoutProxy.getDocument().todos).sort(([_id1, todo1], [_id2, todo2]) => {
+        if (localProxy) {
+            setTodoEntries(Object.entries(localProxy.getDocument().todos).sort(([_id1, todo1], [_id2, todo2]) => {
                 if (todo1.createdAt == undefined) {
-                    return -1;
-                }
-                if (todo2.createdAt == undefined) {
                     return 1;
                 }
-                return todo2.createdAt - todo1.createdAt;
+                if (todo2.createdAt == undefined) {
+                    return -1;
+                }
+                return todo1.createdAt - todo2.createdAt;
             }));
-            setUnflushedCommands(flushoutProxy.getCommandCount() - lastSnapshotCommandCount)
+            setUnflushedCommands(localProxy.getCommandCount() - lastSnapshotCommandCount)
         }
     }, [proxyCommandCount, lastSnapshotCommandCount])
     return <div className="Client">
         <h1>{props.title}</h1>
-        {flushoutProxy == undefined ? 
+        {localProxy == undefined ? 
         <p>Loading...</p> :
         <div style={{flexGrow: 1, alignSelf: 'stretch', display: 'flex', flexDirection: 'column', alignItems: 'stretch'}}>
-            <div style={{flexGrow: 1}}>
+            <div style={{flexGrow: 1, overflowY: 'scroll', height: '40vh'}}>
             {todoEntries.map(([id, todo]) => {
                 return <TodoEntryView id={id} todo={todo} backendApi={props.backendApi} 
                     applyCommand={applyLocally}/>;
             })}
             </div>
             <div style={{alignSelf: 'stretch', display: 'flex', alignItems: 'center'}}>
-                <textarea style={{flexGrow: 1}} value={newTextField} 
+                <textarea style={{flexGrow: 1}} value={newTextField} rows={1}
                     onChange={(ev) => { 
                         setNewTextField(ev.target.value); 
                     }}
@@ -125,20 +130,19 @@ export function Client(props: ClientProps) {
                 <span>Unflushed Commands: {unflushedCommands}</span> 
                 <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
                     <button type="button" onClick={() => {
-                        const flush = flushoutProxy.beginFlush();
+                        const flush = localProxy.beginFlush();
                         props.backendApi.sendFlush(flush).then(async (result) => {
-                            console.log(result);
-                            const flushResult = flushoutProxy.endFlush(result.sync);
-                            console.log(flushResult);
+                            const flushResult = localProxy.endFlush(result.sync);
                             if (flushResult.idsChanged || flushResult.error != undefined) {
-                                /* Rough handling of what should be extremely rare case when 
-                                there's an error or when two clients create the same random ID at the same time */
+                                /* Simple handling of what should be extremely rare case when 
+                                there's an error in what's returned from the backend, or when two clients 
+                                create the same random ID at the same time */
                                 console.log('Model re-initialized from backend, sync result was', result.sync);
                                 const snapshot = await props.backendApi.latestSnapshot();
-                                setFlushoutProxy(new Proxy(snapshot));
+                                setLocalProxy(new Proxy(snapshot));
                             }
-                            setLastSnapshotCommandCount(flushoutProxy.getCommandCount());
-                            setProxyCommandCount(flushoutProxy.getCommandCount());                        
+                            setLastSnapshotCommandCount(localProxy.getCommandCount());
+                            setProxyCommandCount(localProxy.getCommandCount());                        
                         });
                     }}>Flush</button>
                     <small>(Synchronizes local commands with remote master)</small>
