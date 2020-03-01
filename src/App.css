@@ -1,5 +1,42 @@
 .App {
   text-align: center;
+  display: flex;
+}
+
+button {
+  background-color: #3366ff;
+  color: #ffffff;
+  padding: 10px;
+  margin: 5px;
+}
+
+textarea {
+  font-size: 1em;
+}
+
+.Client {
+  flex-grow: 1;
+  height: 50vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-left: 10px;
+  margin-right: 10px;
+  border-width: 5px;
+  border-style: 'solid';
+  border-color: #7c7a7a;
+}
+
+@media (max-width: 500px) {
+  .App {
+    flex-direction: column;
+  }
+}
+
+.center-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .App-logo {
